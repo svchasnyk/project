@@ -6,7 +6,6 @@ namespace project
 {
     public enum Genre { Fantasy, Detective, Science, Novel, Children }
     public enum OrderStatus { New, Processing, Delivered, Cancelled }
-
     public interface IEmployee
     {
         string Name { get; set; }
@@ -14,30 +13,11 @@ namespace project
         int Experience { get; set; }
         void Work();
     }
-
+    public delegate void OrderHandler(Order order);
     public abstract class Person
     {
         public abstract string Name { get; set; }
         public abstract void Introduce();
-    }
-
-    public class BookStore
-    {
-        public string Name { get; set; } = string.Empty;
-        public string Address { get; set; } = string.Empty;
-
-        public List<Book> Books { get; set; } = new();
-        public List<Employee> Employees { get; set; } = new();
-        public List<Client> Clients { get; set; } = new();
-        public List<Order> Orders { get; set; } = new();
-
-        public void AddBook(Book book) => Books.Add(book);
-        public void RegisterClient(Client client) => Clients.Add(client);
-        public void CreateOrder(Order order)
-        {
-            Orders.Add(order);
-            order.Client.OrdersHistory.Add(order);
-        }
     }
 
     public class Book : IComparable<Book>
@@ -105,6 +85,45 @@ namespace project
         }
     }
 
+    public class BookStore
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+
+        public List<Book> Books { get; set; } = new();
+        public List<Employee> Employees { get; set; } = new();
+        public List<Client> Clients { get; set; } = new();
+        public List<Order> Orders { get; set; } = new();
+
+
+        public event Action<Book>? OnBookAdded;
+
+        public void AddBook(Book book)
+        {
+            Books.Add(book);
+            OnBookAdded?.Invoke(book);
+        }
+
+        public void RegisterClient(Client client) => Clients.Add(client);
+
+        public void CreateOrder(Order order)
+        {
+            Orders.Add(order);
+            order.Client.OrdersHistory.Add(order);
+        }
+    }
+
+    public class OrderProcessor
+    {
+        public event OrderHandler? OnOrderProcessed;
+
+        public void Process(Order order)
+        {
+            Console.WriteLine("Обробка замовлення...");
+            OnOrderProcessed?.Invoke(order);
+        }
+    }
+
     class Program
     {
         static void ShowMenu()
@@ -118,21 +137,40 @@ namespace project
 
         static void Main(string[] args)
         {
-            Console.OutputEncoding = Encoding.UTF8; 
-
-            Console.WriteLine("Приложение project запущено!");
+            Console.OutputEncoding = Encoding.UTF8;
             ShowMenu();
-            List<Person> people = new List<Person>
+            var store = new BookStore();
+            var book = new Book
             {
-                new Client { Name = "Alice" },
-                new Author { Name = "Bob" },
+                Title = "1984",
+                Author = new Author { Name = "Джордж Орвелл" },
+                Price = 300
+            };
+            var client = new Client { Name = "Олег", Email = "oleg@example.com" };
+            var order = new Order { Client = client, Books = new List<Book> { book } };
+            Console.WriteLine("\n--- Демонстрація делегатів ---");
+            Action<Book> printBook = b => Console.WriteLine($"Книга: {b.Title}, Автор: {b.Author.Name}, Ціна: {b.Price}");
+            Predicate<Client> hasEmail = c => !string.IsNullOrWhiteSpace(c.Email);
+            Func<Order, bool> isValidOrder = o => o.Books.Count > 0;
+
+            printBook(book);
+            Console.WriteLine($"Клієнт має email: {hasEmail(client)}");
+            Console.WriteLine($"Замовлення валідне: {isValidOrder(order)}");
+            Console.WriteLine("\n--- Демонстрація подій ---");
+            store.OnBookAdded += b => Console.WriteLine($"Подія: додано книгу '{b.Title}'");
+            store.AddBook(book);
+
+            var processor = new OrderProcessor();
+            processor.OnOrderProcessed += o => Console.WriteLine($"Подія: замовлення для {o.Client.Name} оброблено");
+            processor.Process(order);
+            Console.WriteLine("\n--- Демонстрація поліморфізму ---");
+            var people = new List<Person>
+            {
+                client,
+                book.Author,
                 new Employee { Name = "John", Position = "Seller", Experience = 5 }
             };
-
-            foreach (var person in people)
-            {
-                person.Introduce();
-            }
+            foreach (var person in people) person.Introduce();
         }
     }
 }
