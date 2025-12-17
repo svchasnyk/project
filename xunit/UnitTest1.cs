@@ -55,5 +55,16 @@ namespace xunittest
 
             Assert.Null(exception);
         }
+
+        [Fact]
+        public void EmployeeClone_ShouldCreateCopy()
+        {
+            var employee = new Employee { Name = "John", Position = "Seller", Experience = 5 };
+            var clone = (Employee)employee.Clone();
+
+            Assert.Equal(employee.Name, clone.Name);
+            Assert.Equal(employee.Position, clone.Position);
+            Assert.Equal(employee.Experience, clone.Experience);
+        }
     }
 }
